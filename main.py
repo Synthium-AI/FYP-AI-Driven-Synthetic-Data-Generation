@@ -139,9 +139,9 @@ def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1):
     # Initialize DGANER with load_mode
     original_csv_path = os.path.join(project_path, original_csv)
     if model == "ctgan":
-        model_agent = DGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
-    elif model == "dgan":    
         model_agent = CTGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
+    elif model == "dgan":    
+        model_agent = DGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
 
     # Generate and save the synthetic data
     model_agent.generate_synthetic_data_csv(os.path.join(exports_path, new_filename), num_examples=num_examples)
