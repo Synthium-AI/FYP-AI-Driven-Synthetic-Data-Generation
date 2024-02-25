@@ -1,0 +1,13 @@
+# Model Dependencies
+torch 
+numpy 
+pandas 
+matplotlib 
+scikit-learn 
+gretel-synthetics
+# API Dependencies
+fastapi 
+uvicorn[standard] 
+ngrok 
+nest-asyncio 
+python-multipart
