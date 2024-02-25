@@ -1,9 +1,44 @@
+from sdv.metadata import SingleTableMetadata
 from dateutil.parser import parse
 import pandas as pd
 
 class AutoSyntheticConfigurator:
     def __init__(self, file_path):
         self.data_df = pd.read_csv(file_path)
+
+    def get_ctgan_config(self):
+        ctgan_main_config = {
+            "metadata": None,
+            "metadata_is_valid": None,
+            "enforce_min_max_values": True,
+            "enforce_rounding": True,
+            "locales": None,
+            "embedding_dim": 128,
+            "generator_dim": (256, 256),
+            "discriminator_dim": (256, 256),
+            "generator_lr": 0.0002,
+            "generator_decay": 0.000001,
+            "discriminator_lr": 0.0002,
+            "discriminator_decay": 0.000001,
+            "batch_size": 500,
+            "discriminator_steps": 1,
+            "log_frequency": True,
+            "verbose": True,
+            "epochs": 300,
+            "pac": 10,
+            "cuda": True
+        }
+
+        metadata = SingleTableMetadata()
+        metadata.detect_from_dataframe(self.data_df)
+        ctgan_main_config["metadata"] = metadata.to_dict()
+        try:
+            metadata.validate()
+            ctgan_main_config["metadata_is_valid"] = True
+        except Exception as e:
+            ctgan_main_config["metadata_is_valid"] = False
+
+        return ctgan_main_config
 
     def get_dgan_config(self):
         dgan_main_config = {

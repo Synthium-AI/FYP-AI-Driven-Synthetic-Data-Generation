@@ -11,6 +11,7 @@ import uuid
 import shutil
 import os
 from helpers import AutoSyntheticConfigurator
+from ctgan_model import CTGANER
 from dgan_model import DGANER
 
 
@@ -38,7 +39,7 @@ async def upload_file(file: UploadFile = File(...)):
     return JSONResponse(status_code=200, content={"key": folder_id})
 
 @app.get("/config/{key}")
-def get_config(key: str, model="dgan"):
+def get_config(key: str, model="ctgan"):
     folder_path = os.path.join("client", key)
     # Verify the folder exists
     if not os.path.exists(folder_path):
@@ -57,13 +58,15 @@ def get_config(key: str, model="dgan"):
     file_path = os.path.join(folder_path, csv_file)
 
     configurator = AutoSyntheticConfigurator(file_path)
+    if model == "ctgan":
+        dgan_config = configurator.get_ctgan_config()
     if model == "dgan":
         dgan_config = configurator.get_dgan_config()
 
     return JSONResponse(status_code=200, content=dgan_config)
 
 @app.post("/train_model/")
-def train_model(background_tasks: BackgroundTasks, key: str, config: dict):
+def train_model(background_tasks: BackgroundTasks, key: str, config: dict, model: str="ctgan"):
     folder_path = os.path.join("client", key)
     if not os.path.exists(folder_path):
         raise HTTPException(status_code=404, detail="Project key not found")
@@ -79,26 +82,39 @@ def train_model(background_tasks: BackgroundTasks, key: str, config: dict):
 
     file_path = os.path.join(folder_path, csv_file)
 
-    def train_and_save_model(file_path, config, folder_path):
-        dganer = DGANER(file_path, config)
-        dganer.train()
-        dganer.save(folder_path)
+    def train_and_save_model(model, file_path, config, folder_path):
+        if model == "ctgan":
+            dganer = CTGANER(file_path, config)
+            dganer.train()
+            dganer.save(folder_path)
+        elif model == "dgan":
+            dganer = DGANER(file_path, config)
+            dganer.train()
+            dganer.save(folder_path)
 
-    background_tasks.add_task(train_and_save_model, file_path, config, folder_path)
+    background_tasks.add_task(train_and_save_model, model, file_path, config, folder_path)
 
-    return {"message": "Training started", "key": key}
+    return {"model":model, "message": "Training started", "key": key}
 
 @app.post("/generate_synthetic_data/{key}")
-def generate_synthetic_data(key: str, num_examples: int=1):
+def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1):
     project_path = os.path.join("client", key)
-    model_path = os.path.join(project_path, "model.pt")
-    dgan_config_path = os.path.join(project_path, "dgan_config.json")
-    encoding_mappings_path = os.path.join(project_path, "encoding_mappings.pkl")
-
-    # Check if model and encoding mappings exist
-    if not os.path.exists(model_path) or not os.path.exists(dgan_config_path) or not os.path.exists(encoding_mappings_path):
+    if model == "ctgan":
+        model_path = os.path.join(project_path, "model.pkl")
+        main_config_path = os.path.join(project_path, "ctgan_config.json")
+        # Check if model and encoding mappings exist
+        if not os.path.exists(model_path) or not os.path.exists(main_config_path):
+            return JSONResponse(status_code=404, content={"message": "Model is not trained yet or missing files"})
+    elif model == "dgan":
+        model_path = os.path.join(project_path, "model.pt")
+        main_config_path = os.path.join(project_path, "dgan_config.json")
+        encoding_mappings_path = os.path.join(project_path, "encoding_mappings.pkl")
+        # Check if model and encoding mappings exist
+        if not os.path.exists(model_path) or not os.path.exists(main_config_path) or not os.path.exists(encoding_mappings_path):
+            return JSONResponse(status_code=404, content={"message": "Model is not trained yet or missing files"})
+    else:
         return JSONResponse(status_code=404, content={"message": "Model is not trained yet or missing files"})
-
+    
     # Find the original CSV file to determine the name
     original_csv = None
     for file_name in os.listdir(project_path):
@@ -122,10 +138,13 @@ def generate_synthetic_data(key: str, num_examples: int=1):
 
     # Initialize DGANER with load_mode
     original_csv_path = os.path.join(project_path, original_csv)
-    dganer = DGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
+    if model == "ctgan":
+        model_agent = DGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
+    elif model == "dgan":    
+        model_agent = CTGANER(file_path=original_csv_path, main_config="load_mode", project_directory_path=project_path)
 
     # Generate and save the synthetic data
-    dganer.generate_synthetic_data_csv(os.path.join(exports_path, new_filename), num_examples=num_examples)
+    model_agent.generate_synthetic_data_csv(os.path.join(exports_path, new_filename), num_examples=num_examples)
 
     # Assuming you want to return the file for download
     return FileResponse(path=os.path.join(exports_path, new_filename), filename=new_filename)
