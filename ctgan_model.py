@@ -36,7 +36,8 @@ class CTGANER:
             ctgan_config_path = os.path.join(project_directory_path, "ctgan_config.json")
             self.model = CTGANSynthesizer.load(model_path)
             with open(ctgan_config_path, "r") as json_file:
-                self.main_config = json.load(json_file) 
+                self.main_config = json.load(json_file)
+            self.metadata = SingleTableMetadata.load_from_dict(main_config["metadata"])
 
     def train(self):
         self.model.fit(self.data_df)
