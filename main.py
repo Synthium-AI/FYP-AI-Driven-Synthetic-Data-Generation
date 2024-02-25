@@ -11,6 +11,7 @@ import uuid
 import shutil
 import os
 from helpers import AutoSyntheticConfigurator
+from dgan_model import DGANER
 
 
 app = FastAPI()
