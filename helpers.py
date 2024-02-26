@@ -51,9 +51,9 @@ class AutoSyntheticConfigurator:
             "attribute_columns": None,
             "example_id_column": None,
             # Model Configs
-            "max_sequence_len": 'default',
-            "sample_len" : 'default',
-            "batch_size": 'default',
+            "max_sequence_len": None,
+            "sample_len" : 1,
+            "batch_size": None,
             "apply_feature_scaling" : True,
             "apply_example_scaling": False,
             "use_attribute_discriminator": False,
@@ -62,6 +62,9 @@ class AutoSyntheticConfigurator:
             "epochs": 500,
             "cuda": True
         }
+        # Set Model Configs
+        dgan_main_config["max_sequence_len"] = self.data_df.shape[0]//2
+        dgan_main_config["batch_size"] = min(100, self.data_df.shape[1])
         # First check the datetime column
         datetime_candidate = self.detect_datetime_column()
         if datetime_candidate:

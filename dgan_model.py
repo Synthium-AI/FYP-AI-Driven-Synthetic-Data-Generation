@@ -74,9 +74,13 @@ class DGANER:
             )
 
     def generate_synthetic_data_df(self, num_examples):
+        actual_num_examples = 0
+        while (actual_num_examples*self.main_config["max_sequence_len"]) < num_examples:
+            print(actual_num_examples)
+            actual_num_examples+=1
         if self.encodable_columns:
             # Create a copy to avoid modifying the original encoded_df
-            reverted_df = self.model.generate_dataframe(num_examples)
+            reverted_df = self.model.generate_dataframe(actual_num_examples)
             print(reverted_df)
             # Iterate over the encoding mappings and revert each column
             for column, mapping in self.encodable_encoding_mappings.items():
@@ -90,7 +94,7 @@ class DGANER:
             # Return the DataFrame with reverted encoding
             return reverted_df
         else:
-            return self.model.generate_dataframe(num_examples)
+            return self.model.generate_dataframe(actual_num_examples)
 
     def generate_synthetic_data_csv(self, filename, num_examples, index=False, encoding='utf-8'):
         self.generate_synthetic_data_df(num_examples).to_csv(filename, index = index, encoding=encoding)
