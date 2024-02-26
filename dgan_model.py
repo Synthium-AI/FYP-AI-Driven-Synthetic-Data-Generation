@@ -76,7 +76,6 @@ class DGANER:
     def generate_synthetic_data_df(self, num_examples):
         actual_num_examples = 0
         while (actual_num_examples*self.main_config["max_sequence_len"]) < num_examples:
-            print(actual_num_examples)
             actual_num_examples+=1
         if self.encodable_columns:
             # Create a copy to avoid modifying the original encoded_df

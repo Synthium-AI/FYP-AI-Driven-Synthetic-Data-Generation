@@ -63,7 +63,7 @@ class AutoSyntheticConfigurator:
             "cuda": True
         }
         # Set Model Configs
-        dgan_main_config["max_sequence_len"] = self.data_df.shape[0]//2
+        dgan_main_config["max_sequence_len"] = self.data_df.shape[0]//4
         dgan_main_config["batch_size"] = min(100, self.data_df.shape[1])
         # First check the datetime column
         datetime_candidate = self.detect_datetime_column()
