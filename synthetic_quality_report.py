@@ -10,6 +10,7 @@ class SyntheticQualityAssurance:
         self.synthetic_data_df = pd.read_csv(synthetic_file_path)
         self.metadata = SingleTableMetadata()
         self.metadata.detect_from_dataframe(self.data_df)
+        self.metadata = self.metadata.to_dict()
         self.report = QualityReport()
 
     def generate_report(self, save_dir_path=None):
