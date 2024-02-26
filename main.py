@@ -149,7 +149,7 @@ def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1, g
     model_agent.generate_synthetic_data_csv(os.path.join(exports_path, new_filename), num_examples=num_examples)
 
     if generate_quality_report:
-        quality_manager = SyntheticQualityAssurance(original_csv_path,os.path.join(exports_path, new_filename))
+        quality_manager = SyntheticQualityAssurance(original_csv_path,os.path.join(exports_path, new_filename),model=model)
         quality_manager.generate_report(project_path)
 
     # Assuming you want to return the file for download
