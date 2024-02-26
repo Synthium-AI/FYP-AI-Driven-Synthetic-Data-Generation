@@ -9,8 +9,10 @@ from typing import Optional
 from io import BytesIO
 import uuid
 import shutil
+import json
 import os
 from helpers import AutoSyntheticConfigurator
+from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
 from dgan_model import DGANER
 
@@ -97,7 +99,7 @@ def train_model(background_tasks: BackgroundTasks, key: str, config: dict, model
     return {"model":model, "message": "Training started", "key": key}
 
 @app.post("/generate_synthetic_data/{key}")
-def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1):
+def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1, generate_quality_report=False):
     project_path = os.path.join("client", key)
     if model == "ctgan":
         model_path = os.path.join(project_path, "model.pkl")
@@ -146,5 +148,22 @@ def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1):
     # Generate and save the synthetic data
     model_agent.generate_synthetic_data_csv(os.path.join(exports_path, new_filename), num_examples=num_examples)
 
+    if generate_quality_report:
+        quality_manager = SyntheticQualityAssurance(original_csv_path,os.path.join(exports_path, new_filename))
+        quality_manager.generate_report(project_path)
+
     # Assuming you want to return the file for download
     return FileResponse(path=os.path.join(exports_path, new_filename), filename=new_filename)
+
+@app.get("/get_synthetic_quality_report/{key}")
+def get_synthetic_quality_report(key: str):
+    project_path = os.path.join("client", key)
+    report_path = os.path.join(project_path, "synthetic_data_quality_report.json")
+    # Check if report exists
+    if not os.path.exists(report_path):
+        return JSONResponse(status_code=404, content={"message": "Quality Report does not exists!"})
+    
+    with open(report_path, "r") as json_file:
+        quality_report = json.load(json_file)
+
+    return JSONResponse(status_code=200, content=quality_report)
