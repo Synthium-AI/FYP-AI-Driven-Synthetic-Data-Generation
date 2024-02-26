@@ -160,6 +160,8 @@ def get_synthetic_quality_report(key: str):
     project_path = os.path.join("client", key)
     report_path = os.path.join(project_path, "synthetic_data_quality_report.json")
     # Check if report exists
+    if not os.path.exists(project_path):
+        return JSONResponse(status_code=404, content={"message": "Invalid Key!"})
     if not os.path.exists(report_path):
         return JSONResponse(status_code=404, content={"message": "Quality Report does not exists!"})
     
