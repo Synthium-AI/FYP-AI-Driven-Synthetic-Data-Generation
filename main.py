@@ -169,3 +169,6 @@ def get_synthetic_quality_report(key: str):
         quality_report = json.load(json_file)
 
     return JSONResponse(status_code=200, content=quality_report)
+
+if __name__ == "__main__":
+    uvicorn.run(app)

@@ -1,0 +1,19 @@
+{
+    "report_type": "QualityReport",
+    "generated_date": "2024-04-03",
+    "sdmetrics_version": "0.13.0",
+    "num_rows_real_data": 22,
+    "num_rows_synthetic_data": 100,
+    "generation_time": 0.30902671813964844,
+    "overall_score": 0.7985821513253577,
+    "properties_info": {
+        "Property": {
+            "0": "Column Shapes",
+            "1": "Column Pair Trends"
+        },
+        "Score": {
+            "0": 0.7772435634540897,
+            "1": 0.8199207391966258
+        }
+    }
+}
