@@ -1,14 +1,24 @@
 # Model Dependencies
-torch 
-numpy 
-pandas 
-matplotlib 
-scikit-learn 
-gretel-synthetics
-sdv
+# torch 
+# numpy 
+# pandas 
+# matplotlib 
+# scikit-learn 
+# gretel-synthetics
+# sdv
 # API Dependencies
 fastapi 
 uvicorn[standard] 
 ngrok 
 nest-asyncio 
 python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1
+# Database Dependencies
+sqlAlchemy
+pymysql
+# Misc Dependencies
+google-api-python-client
+python-dotenv
+
