@@ -1,7 +1,8 @@
 # API Dependencies
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, status, File, UploadFile, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.models import HTTPBase
 from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel
@@ -11,16 +12,61 @@ import uuid
 import shutil
 import json
 import os
+from sqlalchemy.orm import Session
+from database import Base, engine, SessionLocal
 from helpers import AutoSyntheticConfigurator
 from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
 from dgan_model import DGANER
+import auth
+from typing import Annotated
+from dotenv import load_dotenv, find_dotenv
 
+load_dotenv(find_dotenv())
 
 app = FastAPI()
+app.include_router(auth.router)
+
+origins = [
+    "http://localhost",
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# models.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict, Depends(auth.get_current_user)]
+
+@app.get("/", status_code=status.HTTP_200_OK)
+def root():
+    return {"health": "ok"}
+
+@app.get("/user", status_code=status.HTTP_200_OK)
+def user(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication Failed")
+    return {"User": user}
+
 
 @app.post("/upload_file/")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(user: user_dependency, file: UploadFile = File(...)):
     # Generate a unique ID for this upload
     folder_id = str(uuid.uuid4())
     folder_path = os.path.join("client", folder_id)
@@ -41,7 +87,7 @@ async def upload_file(file: UploadFile = File(...)):
     return JSONResponse(status_code=200, content={"key": folder_id})
 
 @app.get("/config/{key}")
-def get_config(key: str, model="ctgan"):
+def get_config(user: user_dependency, key: str, model="ctgan"):
     folder_path = os.path.join("client", key)
     # Verify the folder exists
     if not os.path.exists(folder_path):
@@ -68,7 +114,7 @@ def get_config(key: str, model="ctgan"):
     return JSONResponse(status_code=200, content=dgan_config)
 
 @app.post("/train_model/")
-def train_model(background_tasks: BackgroundTasks, key: str, config: dict, model: str="ctgan"):
+def train_model(user: user_dependency, background_tasks: BackgroundTasks, key: str, config: dict, model: str="ctgan"):
     folder_path = os.path.join("client", key)
     if not os.path.exists(folder_path):
         raise HTTPException(status_code=404, detail="Project key not found")
@@ -99,7 +145,7 @@ def train_model(background_tasks: BackgroundTasks, key: str, config: dict, model
     return {"model":model, "message": "Training started", "key": key}
 
 @app.post("/generate_synthetic_data/{key}")
-def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1, generate_quality_report=False):
+def generate_synthetic_data(user: user_dependency, key: str, model: str="ctgan", num_examples: int=1, generate_quality_report=False):
     project_path = os.path.join("client", key)
     if model == "ctgan":
         model_path = os.path.join(project_path, "model.pkl")
@@ -156,7 +202,7 @@ def generate_synthetic_data(key: str, model: str="ctgan", num_examples: int=1, g
     return FileResponse(path=os.path.join(exports_path, new_filename), filename=new_filename)
 
 @app.get("/get_synthetic_quality_report/{key}")
-def get_synthetic_quality_report(key: str):
+def get_synthetic_quality_report(user: user_dependency, key: str):
     project_path = os.path.join("client", key)
     report_path = os.path.join(project_path, "synthetic_data_quality_report.json")
     # Check if report exists

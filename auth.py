@@ -27,6 +27,8 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl='auth/token')
 
 class CreatedUserRequest(BaseModel):
+    first_name: str
+    last_name: str
     email: str
     password: str
 
@@ -47,12 +49,15 @@ db_dependency = Annotated[Session, Depends(get_db)]
 async def create_user(db: db_dependency, create_user_request: CreatedUserRequest):
     create_user_model = Users(
         email = create_user_request.email,
-        hashed_password = bcrypt_context.hash(create_user_request.password)
+        hashed_password = bcrypt_context.hash(create_user_request.password),
+        first_name = create_user_request.first_name,
+        last_name = create_user_request.last_name
     )
     try:
         db.add(create_user_model)
         db.commit()
-    except:
+    except Exception as e:
+        print("[Database Error] Error creating user:",str(e))
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User Already Exists!")
 
 @router.post ("/token", response_model=Token)

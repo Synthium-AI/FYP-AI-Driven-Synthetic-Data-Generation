@@ -25,6 +25,8 @@ class Users(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(length=256), unique=True)
     hashed_password = Column(String(length=256))
+    first_name = Column(String(length=256))
+    last_name = Column(String(length=256))
 
 class ChatbotAgents(Base):
     __tablename__ = 'chatbot_agents'

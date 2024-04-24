@@ -1,11 +1,11 @@
 # Model Dependencies
-# torch 
-# numpy 
-# pandas 
-# matplotlib 
-# scikit-learn 
-# gretel-synthetics
-# sdv
+torch 
+numpy 
+pandas 
+matplotlib 
+scikit-learn 
+gretel-synthetics
+sdv
 # API Dependencies
 fastapi 
 uvicorn[standard] 
