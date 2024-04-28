@@ -65,8 +65,8 @@ def user(user: user_dependency, db: db_dependency, background_tasks: BackgroundT
     return {"User": user}
 
 
-@app.post("/upload_file/")
-async def upload_file(user: user_dependency, file: UploadFile = File(...)):
+@app.post("/upload_data_artifact/")
+async def upload_data_artifact(user: user_dependency, file: UploadFile = File(...)):
     # Generate a unique ID for this upload
     folder_id = str(uuid.uuid4())
     folder_path = os.path.join("client", folder_id)

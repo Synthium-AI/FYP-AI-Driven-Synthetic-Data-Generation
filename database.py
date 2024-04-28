@@ -28,30 +28,72 @@ class Users(Base):
     first_name = Column(String(length=256))
     last_name = Column(String(length=256))
 
-class ChatbotAgents(Base):
-    __tablename__ = 'chatbot_agents'
+class Projects(Base):
+    __tablename__ = 'projects'
     
     id = Column(Integer, primary_key=True)
-    chatbot_name = Column(String(length=256))
-    chatbot_key = Column(String(length=256),unique=True)
-    system_prompt = Column(Text(length=1000))
-    vb_loaded = Column(Boolean)
-    created_by_user_id = Column(Integer)
+    name = Column(String(length=256))
+    description = Column(Text(length=1000))
+    model_type = Column(String(length=256))
+    status = Column(String(length=256))
+    training_time = Column(String(length=256))
+    synthetic_quality_score = Column(Integer)
+    model_id = Column(String(length=256), unique=True)
+    model_config_id = Column(String(length=256), unique=True)
+    user_id = Column(Integer)
+    data_artifact_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
     updated_on = Column(DateTime(timezone=True), server_default=func.current_timestamp(), onupdate=func.current_timestamp())
 
-class ChatSessions(Base):
-    __tablename__ = 'chat_sessions'
+class Models(Base):
+    __tablename__ = 'models'
     
     id = Column(Integer, primary_key=True)
-    chat_session_id = Column(String(length=256),unique=True)
-    chatbot_key = Column(String(length=256))
-    status = Column(String(length=256))
-    chat_data = Column(Text(length=1000))
-    contact_info = Column(Text(length=256))
-    started_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
-    ended_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+    model_id = Column(String(length=256), unique=True)
+    file_extension = Column(String(length=256), server_default=".pkl")
+    model_type = Column(String(length=256))
+    project_id = Column(Integer, unique=True)
+    user_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
 
+class ModelConfigs(Base):
+    __tablename__ = 'model_configs'
+    
+    id = Column(Integer, primary_key=True)
+    model_config_id = Column(String(length=256), unique=True)
+    file_extension = Column(String(length=256), server_default=".json")
+    project_id = Column(Integer, unique=True)
+    user_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+
+class DataArtifacts(Base):
+    __tablename__ = 'data_artifacts'
+    
+    id = Column(Integer, primary_key=True)
+    data_artifact_id = Column(String(length=256),unique=True)
+    file_extension = Column(String(length=256), server_default=".csv")
+    original_filename = Column(String(length=256))
+    user_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+
+class SyntheticData(Base):
+    __tablename__ = 'synthetic_data'
+    
+    id = Column(Integer, primary_key=True)
+    synthetic_data_id = Column(String(length=256),unique=True)
+    file_extension = Column(String(length=256), server_default=".csv")
+    user_id = Column(Integer)
+    project_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+
+class SyntheticQualityReports(Base):
+    __tablename__ = 'synthetic_quality_reports'
+    
+    id = Column(Integer, primary_key=True)
+    synthetic_data_id = Column(String(length=256),unique=True)
+    file_extension = Column(String(length=256), server_default=".csv")
+    user_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 # engine = create_engine(SQLALCHEMY_DATABASE_URL)
