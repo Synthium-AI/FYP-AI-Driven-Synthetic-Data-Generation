@@ -13,16 +13,19 @@ import shutil
 import json
 import os
 from sqlalchemy.orm import Session
-from database import Base, engine, SessionLocal
+from database import Base, engine, SessionLocal, Users, Projects, Models, ModelConfigs, DataArtifacts, SyntheticData, SyntheticQualityReports
 from helpers import AutoSyntheticConfigurator
 from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
 from dgan_model import DGANER
+from google_drive_api import GoogleDriveAPI
 import auth
 from typing import Annotated
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
+
+CLIENT_BUFFER_FOLDER_NAME = os.getenv("CLIENT_BUFFER_FOLDER_NAME")
 
 app = FastAPI()
 app.include_router(auth.router)
@@ -64,27 +67,46 @@ def user(user: user_dependency, db: db_dependency, background_tasks: BackgroundT
         raise HTTPException(status_code=401, detail="Authentication Failed")
     return {"User": user}
 
+@app.post("/create_new_project")
+def create_new_project(user: user_dependency, db: db_dependency, key: str, model="ctgan"):
 
-@app.post("/upload_data_artifact/")
-async def upload_data_artifact(user: user_dependency, file: UploadFile = File(...)):
+@app.post("/upload_data_artifact")
+async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     # Generate a unique ID for this upload
-    folder_id = str(uuid.uuid4())
-    folder_path = os.path.join("client", folder_id)
-
-    # Create the directory if it doesn't exist
-    os.makedirs(folder_path, exist_ok=True)
+    data_artifact_id = "data_" + str(uuid.uuid4())
+    google_drive_api = GoogleDriveAPI()
 
     # Define the file path
-    file_path = os.path.join(folder_path, file.filename)
-    if "CSV" in file_path:
-        file_path = file_path.replace("CSV","csv")
-
-    # Save the uploaded file
-    with open(file_path, "wb+") as file_object:
+    data_artifact_local_file_name = data_artifact_id + ".csv"
+    data_artifact_local_file_path = os.path.join(CLIENT_BUFFER_FOLDER_NAME, data_artifact_local_file_name)
+    
+    # Save the uploaded file to the Client Buffer
+    with open(data_artifact_local_file_path, "wb+") as file_object:
         file_object.write(await file.read())
 
-    # Respond with the UUID
-    return JSONResponse(status_code=200, content={"key": folder_id})
+    # Upload file to Google Drive Glacier Service
+    gdrive_response = google_drive_api.upload_file("data_artifacts", data_artifact_local_file_path)
+
+    # Delete the file from the Client Buffer (Background Task)
+    background_tasks.add_task(os.remove, data_artifact_local_file_path)
+
+    if gdrive_response:
+        data_artifact_db_record = DataArtifacts(
+            data_artifact_id = data_artifact_id,
+            original_filename = file.filename,
+            user_id = user['id']
+        )
+        try:
+            db.add(data_artifact_db_record)
+            db.commit()
+            print("[Database][SUCCESS] Data Artifact Record Successfully Added: ", data_artifact_id)
+        except Exception as e:
+            print("[Database][ERROR] Error Creating Data Artifact Record:",str(e))
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating Data Artifact Record!")
+    else:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Data Artifact. Please try again!")
+        
+    return JSONResponse(status_code=200, content={"data_artifact_id": data_artifact_id})
 
 @app.get("/config/{key}")
 def get_config(user: user_dependency, key: str, model="ctgan"):
@@ -113,7 +135,7 @@ def get_config(user: user_dependency, key: str, model="ctgan"):
 
     return JSONResponse(status_code=200, content=dgan_config)
 
-@app.post("/train_model/")
+@app.post("/train_model")
 def train_model(user: user_dependency, background_tasks: BackgroundTasks, key: str, config: dict, model: str="ctgan"):
     folder_path = os.path.join("client", key)
     if not os.path.exists(folder_path):

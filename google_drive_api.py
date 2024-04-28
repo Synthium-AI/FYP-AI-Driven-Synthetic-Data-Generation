@@ -19,8 +19,8 @@ class GoogleDriveAPI:
     def __init__(self):
         self.creds = self.authenticate()
         self.service = build('drive', 'v3', credentials=self.creds)
-        if not os.path.exists(CLIENT_BUFFER_FOLDER_NAME):
-            os.makedirs(CLIENT_BUFFER_FOLDER_NAME)
+        # Create the directory if it doesn't exist
+        os.makedirs(CLIENT_BUFFER_FOLDER_NAME, exist_ok=True)
 
     def authenticate(self):
         creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
