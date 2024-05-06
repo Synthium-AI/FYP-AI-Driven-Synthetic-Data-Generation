@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, BIGINT, Text, Boolean
+from sqlalchemy import Column, Integer, Float, String, DateTime, BIGINT, Text, Boolean
 from sqlalchemy.sql import func
 from dotenv import load_dotenv, find_dotenv
 import os
@@ -32,16 +32,19 @@ class Projects(Base):
     __tablename__ = 'projects'
     
     id = Column(Integer, primary_key=True)
+    project_id = Column(String(length=256), unique=True)
     name = Column(String(length=256))
-    description = Column(Text(length=1000))
+    description = Column(Text(length=10000))
     model_type = Column(String(length=256))
     status = Column(String(length=256))
-    training_time = Column(String(length=256))
-    synthetic_quality_score = Column(Integer)
-    model_id = Column(String(length=256), unique=True)
-    model_config_id = Column(String(length=256), unique=True)
+    model_training_time = Column(Float())
+    synthetic_quality_score = Column(Float)
+    model_id = Column(Integer, unique=True)
+    model_config_id = Column(Integer, unique=True)
+    model_log_id = Column(Integer, unique=True)
     user_id = Column(Integer)
     data_artifact_id = Column(Integer)
+    synthetic_quality_report_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
     updated_on = Column(DateTime(timezone=True), server_default=func.current_timestamp(), onupdate=func.current_timestamp())
 
@@ -50,8 +53,9 @@ class Models(Base):
     
     id = Column(Integer, primary_key=True)
     model_id = Column(String(length=256), unique=True)
-    file_extension = Column(String(length=256), server_default=".pkl")
+    file_extension = Column(String(length=256), server_default=".pkl") # OR ".pt" if DGAN Model Type
     model_type = Column(String(length=256))
+    model_training_time = Column(Float())
     project_id = Column(Integer, unique=True)
     user_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
@@ -61,10 +65,21 @@ class ModelConfigs(Base):
     
     id = Column(Integer, primary_key=True)
     model_config_id = Column(String(length=256), unique=True)
-    file_extension = Column(String(length=256), server_default=".json")
+    model_config_data = Column(Text(length=10000))
     project_id = Column(Integer, unique=True)
     user_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+
+class ModelLogs(Base):
+    __tablename__ = 'model_logs'
+    
+    id = Column(Integer, primary_key=True)
+    model_log_id = Column(String(length=256), unique=True)
+    model_log_data = Column(Text(length=10000))
+    project_id = Column(Integer, unique=True)
+    user_id = Column(Integer)
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+    updated_on = Column(DateTime(timezone=True), server_default=func.current_timestamp(), onupdate=func.current_timestamp())
 
 class DataArtifacts(Base):
     __tablename__ = 'data_artifacts'
@@ -73,15 +88,17 @@ class DataArtifacts(Base):
     data_artifact_id = Column(String(length=256),unique=True)
     file_extension = Column(String(length=256), server_default=".csv")
     original_filename = Column(String(length=256))
+    num_rows = Column(Integer)
     user_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
 
-class SyntheticData(Base):
-    __tablename__ = 'synthetic_data'
+class SyntheticDataArtifacts(Base):
+    __tablename__ = 'synthetic_data_artifacts'
     
     id = Column(Integer, primary_key=True)
-    synthetic_data_id = Column(String(length=256),unique=True)
+    synthetic_data_artifact_id = Column(String(length=256),unique=True)
     file_extension = Column(String(length=256), server_default=".csv")
+    num_rows = Column(Integer)
     user_id = Column(Integer)
     project_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
@@ -90,9 +107,10 @@ class SyntheticQualityReports(Base):
     __tablename__ = 'synthetic_quality_reports'
     
     id = Column(Integer, primary_key=True)
-    synthetic_data_id = Column(String(length=256),unique=True)
-    file_extension = Column(String(length=256), server_default=".csv")
+    synthetic_quality_report_id = Column(String(length=256),unique=True)
+    synthetic_quality_report_data = Column(Text(length=10000))
     user_id = Column(Integer)
+    project_id = Column(Integer)
     created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})

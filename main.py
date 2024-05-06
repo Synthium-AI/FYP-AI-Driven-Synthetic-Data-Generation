@@ -11,10 +11,13 @@ from io import BytesIO
 import uuid
 import shutil
 import json
+import time
 import os
 from sqlalchemy.orm import Session
-from database import Base, engine, SessionLocal, Users, Projects, Models, ModelConfigs, DataArtifacts, SyntheticData, SyntheticQualityReports
-from helpers import AutoSyntheticConfigurator
+from database import Base, engine, SessionLocal, Users, Projects, Models, ModelConfigs, ModelLogs, DataArtifacts, SyntheticDataArtifacts, SyntheticQualityReports
+from models import CreateNewProjectRequest, CreateNewProjectResponse, UpdateEmptyProjectRequest, UpdateEmptyProjectResponse, UpdatePendingProjectRequest, UpdatePendingProjectResponse, GenerateSyntheticDataRequest, GenerateSyntheticDataResponse
+from api_helpers import get_model_configuration, start_model_training
+from model_helpers import AutoSyntheticConfigurator, synthetic_model_trainer, synthetic_model_data_generator
 from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
 from dgan_model import DGANER
@@ -22,6 +25,9 @@ from google_drive_api import GoogleDriveAPI
 import auth
 from typing import Annotated
 from dotenv import load_dotenv, find_dotenv
+import pandas as pd
+import ast
+
 
 load_dotenv(find_dotenv())
 
@@ -57,18 +63,174 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(auth.get_current_user)]
 
-@app.get("/", status_code=status.HTTP_200_OK)
+@app.get("/health", status_code=status.HTTP_200_OK)
 def root():
     return {"health": "ok"}
 
 @app.get("/user", status_code=status.HTTP_200_OK)
-def user(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks):
+def user(user: user_dependency, db: db_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication Failed")
     return {"User": user}
 
 @app.post("/create_new_project")
-def create_new_project(user: user_dependency, db: db_dependency, key: str, model="ctgan"):
+def create_new_project(user: user_dependency, db: db_dependency, project_data: CreateNewProjectRequest):
+    project_id = "proj_" + str(uuid.uuid4())
+    project_db_record = Projects(
+            project_id = project_id,
+            name = project_data.name,
+            description = project_data.description,
+            status = "empty",
+            user_id = user["id"]
+        )
+    try:
+        db.add(project_db_record)
+        db.commit()
+        print("[Database][SUCCESS] New Project Created Successfully:", project_id)
+        return CreateNewProjectResponse(
+            project_id = project_id,
+            project_name = project_data.name
+        )
+    except Exception as e:
+        print("[Database][ERROR] Failed To Create New Project:",str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating New Project Record!")
+    
+@app.post("/update_empty_project")
+def update_empty_project(user: user_dependency, db: db_dependency, project_data: UpdateEmptyProjectRequest, background_tasks: BackgroundTasks):
+    model_config_id = "model_config_" + str(uuid.uuid4())
+    google_drive_api = GoogleDriveAPI()
+    gdrive_response = google_drive_api.download_file("data_artifacts", project_data.data_artifact_id + ".csv")
+    
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Downloading Data Artifact!")
+    
+    data_artifact_file_path = gdrive_response
+    model_config = get_model_configuration(data_artifact_file_path, project_data.modelType)
+    
+    if model_config == None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error While Generating Model Configuration For Data Artifact: "+project_data.data_artifact_id+" Project ID: "+project_data.project_id)
+
+    model_config_db_record = ModelConfigs(
+            model_config_id = model_config_id,
+            model_config_data = str(model_config),
+            project_id = db.query(Projects).filter(Projects.project_id == project_data.project_id).first().id,
+            user_id = user["id"]
+        )
+    try:
+        db.add(model_config_db_record)
+        db.commit()
+        print("[Database][SUCCESS] New Model Config Created Successfully:", model_config_id)
+    except Exception as e:
+        print("[Database][ERROR] Failed To Create New Model Config:",str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating New Model Config Record!")
+
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_data.project_id).first()
+    project_db_record.model_type = project_data.modelType
+    project_db_record.data_artifact_id = db.query(DataArtifacts).filter(DataArtifacts.data_artifact_id == project_data.data_artifact_id).first().id
+    project_db_record.model_config_id = db.query(ModelConfigs).filter(ModelConfigs.model_config_id == model_config_id).first().id
+    project_db_record.status = "pending"
+    try:
+        db.commit()
+        print("[Database][SUCCESS] Empty Project Updated Successfully:", project_data.project_id)
+    except Exception as e:
+        print("[Database][ERROR] Failed To Update Empty Project:", str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Updating Empty Project Record!")
+    
+    # Delete the file from the Client Buffer (Background Task)
+    background_tasks.add_task(os.remove, data_artifact_file_path)
+    
+    return UpdateEmptyProjectResponse(
+        project_id =  project_data.project_id,
+        modelConfig_id = model_config_id
+    )
+
+@app.post("/update_pending_project")
+def update_pending_project(user: user_dependency, db: db_dependency, project_data: UpdatePendingProjectRequest, background_tasks: BackgroundTasks):
+    model_log_id = "model_log_" + str(uuid.uuid4())
+    background_tasks.add_task(start_model_training, model_log_id, user["id"], project_data)
+
+    return UpdatePendingProjectResponse(
+        project_id =  project_data.project_id,
+        modelLog_id = model_log_id
+    )
+
+@app.post("/generate_synthetic_data")
+def generate_synthetic_data(user: user_dependency, db: db_dependency, project_data: GenerateSyntheticDataRequest, background_tasks: BackgroundTasks):
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_data.project_id).first()
+    if project_db_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project Not Found!")
+    if project_db_record.status != "completed":
+        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="Project Status Not Completed Yet!")
+    
+    model_db_record = db.query(Models).filter(Models.id == project_db_record.model_id).first()
+    model_config_db_record = db.query(ModelConfigs).filter(ModelConfigs.id == project_db_record.model_config_id).first()
+    model_file_name = model_db_record.model_id + model_db_record.file_extension
+
+    # Download Model and Encoding file from Google Drive
+    google_drive_api = GoogleDriveAPI()
+    gdrive_response = google_drive_api.download_file("models", model_file_name)
+    
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Downloading Model File!")
+    
+    model_file_path = gdrive_response
+
+    if project_db_record.model_type == "dgan":
+        model_encoding_mappings_file_name = "encodings_" + model_db_record.model_id + ".pkl"
+        gdrive_response = google_drive_api.download_file("model_encoding_mappings", model_encoding_mappings_file_name)
+        if not gdrive_response:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Downloading Model File!")
+        model_encoding_mappings_file_path = gdrive_response
+
+    # Generate Synthetic Data
+    synthetic_data_artifact_id = "synthiumAI_" + project_db_record.model_type + "_" + str(uuid.uuid4())
+    synthetic_data_artifact_local_file_name = synthetic_data_artifact_id + ".csv"
+    synthetic_data_artifact_local_file_path = os.path.join(CLIENT_BUFFER_FOLDER_NAME, synthetic_data_artifact_local_file_name)
+    
+    synthetic_model_data_generator(
+        project_data.num_rows,
+        synthetic_data_artifact_local_file_path,
+        model_file_path,
+        ast.literal_eval(model_config_db_record.model_config_data),
+        project_db_record.model_type,
+        model_encoding_mappings_file_path if project_db_record.model_type == "dgan" else None
+    )
+
+    # Get number of rows in the synthetic data artifact file
+    num_rows = len(pd.read_csv(synthetic_data_artifact_local_file_path))
+
+    # Create Synthetic Data Artifact DB Record
+    synthetic_data_artifact_db_record = SyntheticDataArtifacts(
+            synthetic_data_artifact_id = synthetic_data_artifact_id,
+            num_rows = num_rows,
+            project_id = project_db_record.id,
+            user_id = user["id"]
+        )
+    try:
+        db.add(synthetic_data_artifact_db_record)
+        db.commit()
+        print("[Database][SUCCESS] New Synthetic Data Artifact Created and Updated Project Training Status Successfully:", synthetic_data_artifact_id)
+    except Exception as e:
+        print("[Database][ERROR] Failed To Create New Synthetic Data Artifact:",str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating New Synthetic Data Artifact Record!")
+
+    # Upload Synthetic Data Artifact to Google Drive
+    gdrive_response = google_drive_api.upload_file("synthetic_data_artifacts", synthetic_data_artifact_local_file_path)
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Synthetic Data Artifact File!")
+    
+    # Delete the file from the Client Buffer (Background Task)
+    background_tasks.add_task(os.remove, model_file_path)
+    if project_db_record.model_type == "dgan":
+        background_tasks.add_task(os.remove, model_encoding_mappings_file_path)
+    background_tasks.add_task(os.remove, synthetic_data_artifact_local_file_path)
+
+    print("[SyntheticDataGenerator][SUCCESS] Synthetic Data Generated Successfully!: " + synthetic_data_artifact_id)
+
+    return GenerateSyntheticDataResponse(
+        project_id =  project_data.project_id,
+        synthetic_data_artifact_id = synthetic_data_artifact_id
+    )
 
 @app.post("/upload_data_artifact")
 async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
@@ -79,32 +241,36 @@ async def upload_data_artifact(user: user_dependency, db: db_dependency, backgro
     # Define the file path
     data_artifact_local_file_name = data_artifact_id + ".csv"
     data_artifact_local_file_path = os.path.join(CLIENT_BUFFER_FOLDER_NAME, data_artifact_local_file_name)
-    
+ 
     # Save the uploaded file to the Client Buffer
     with open(data_artifact_local_file_path, "wb+") as file_object:
         file_object.write(await file.read())
 
+    # Get number of rows in the data artifact file
+    num_rows = len(pd.read_csv(data_artifact_local_file_path))
+
     # Upload file to Google Drive Glacier Service
     gdrive_response = google_drive_api.upload_file("data_artifacts", data_artifact_local_file_path)
 
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Data Artifact. Please try again!")
+    
     # Delete the file from the Client Buffer (Background Task)
     background_tasks.add_task(os.remove, data_artifact_local_file_path)
 
-    if gdrive_response:
-        data_artifact_db_record = DataArtifacts(
-            data_artifact_id = data_artifact_id,
-            original_filename = file.filename,
-            user_id = user['id']
-        )
-        try:
-            db.add(data_artifact_db_record)
-            db.commit()
-            print("[Database][SUCCESS] Data Artifact Record Successfully Added: ", data_artifact_id)
-        except Exception as e:
-            print("[Database][ERROR] Error Creating Data Artifact Record:",str(e))
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating Data Artifact Record!")
-    else:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Data Artifact. Please try again!")
+    data_artifact_db_record = DataArtifacts(
+        data_artifact_id = data_artifact_id,
+        original_filename = file.filename,
+        num_rows = num_rows,
+        user_id = user['id']
+    )
+    try:
+        db.add(data_artifact_db_record)
+        db.commit()
+        print("[Database][SUCCESS] Data Artifact Record Successfully Added: ", data_artifact_id)
+    except Exception as e:
+        print("[Database][ERROR] Error Creating Data Artifact Record:",str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating Data Artifact Record!")
         
     return JSONResponse(status_code=200, content={"data_artifact_id": data_artifact_id})
 
@@ -166,8 +332,8 @@ def train_model(user: user_dependency, background_tasks: BackgroundTasks, key: s
 
     return {"model":model, "message": "Training started", "key": key}
 
-@app.post("/generate_synthetic_data/{key}")
-def generate_synthetic_data(user: user_dependency, key: str, model: str="ctgan", num_examples: int=1, generate_quality_report=False):
+@app.post("/generate_synthetic_data_old/{key}")
+def generate_synthetic_data_old(user: user_dependency, key: str, model: str="ctgan", num_examples: int=1, generate_quality_report=False):
     project_path = os.path.join("client", key)
     if model == "ctgan":
         model_path = os.path.join(project_path, "model.pkl")

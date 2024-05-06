@@ -1,6 +1,37 @@
 from sdv.metadata import SingleTableMetadata
 from dateutil.parser import parse
 import pandas as pd
+from ctgan_model import CTGANER
+from dgan_model import DGANER
+
+
+def synthetic_model_trainer(data_artifact_file_path, model_config, model_type, save_model_file_path, save_model_encoding_mappings_path=None):
+    """## Train a synthetic model
+    - model_config: dict() or json() object
+    - model_type: "ctgan" | "dgan"
+    ## Model Requirements:-
+    ### CTGAN:
+    - save_model_file_path (.pkl)
+    ### DGAN:
+    - save_model_file_path (.pt)
+    - save_model_encoding_mappings_path (.pkl)
+    """
+    if model_type == "ctgan":
+        model_trainer = CTGANER(data_artifact_file_path, model_config)
+        model_trainer.train()
+        model_trainer.save(save_model_file_path)
+    elif model_type == "dgan":
+        model_trainer = DGANER(data_artifact_file_path, model_config)
+        model_trainer.train()
+        model_trainer.save(save_model_file_path, save_model_encoding_mappings_path)
+
+def synthetic_model_data_generator(num_examples, save_synthetic_data_artifact_file_path, model_file_path, model_config, model_type, model_encoding_mappings_path=None):
+    if model_type == "ctgan":
+        model_loader = CTGANER(model_file_path, model_config, load_mode=True)
+        model_loader.generate_synthetic_data_csv(save_synthetic_data_artifact_file_path, num_examples)
+    elif model_type == "dgan":
+        model_loader = DGANER(model_file_path, model_config, load_mode=True, model_encoding_mappings_path=model_encoding_mappings_path)
+        model_loader.generate_synthetic_data_csv(save_synthetic_data_artifact_file_path, num_examples)
 
 class AutoSyntheticConfigurator:
     def __init__(self, file_path):

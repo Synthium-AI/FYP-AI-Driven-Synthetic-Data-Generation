@@ -13,27 +13,14 @@ import os
 
 
 class DGANER:
-    def __init__(self, file_path, main_config="load_mode", project_directory_path=None) -> None:
-        if main_config != "load_mode":
-            self.main_config = main_config
-            self.encodable_encoding_mappings = {}
-        else:
-            dgan_config_path = os.path.join(project_directory_path, "dgan_config.json")
-            model_encoding_mappings_path = os.path.join(project_directory_path, "encoding_mappings.pkl")
-            with open(dgan_config_path, "r") as json_file:
-                self.main_config = json.load(json_file)
-            with open(model_encoding_mappings_path, "rb") as pickle_file:
-                self.encodable_encoding_mappings = pickle.load(pickle_file)
-
-        self.df_style = self.main_config["df_style"]
-        self.example_id_column = self.main_config["example_id_column"]
-        self.feature_columns = self.main_config["feature_columns"]
-        self.attribute_columns = self.main_config["attribute_columns"]
-        self.discrete_columns = self.main_config["discrete_columns"]
-        self.encodable_columns = self.main_config["encodable_columns"]
-        self.time_column = self.main_config["time_column"]
-
-        self.data_df = pd.read_csv(file_path)
+    """
+    Initialize CTGANER instance with given file path
+    ### Note: 
+    - If in "load_mode" file_path will be assumed to be data_artifact path (.csv file)
+    - If not in "load_mode" file_path will be assumed to be model path (.pt file)
+    """
+    def __init__(self, file_path, main_config, load_mode=False, model_encoding_mappings_path=None) -> None:
+        self.main_config = main_config
         self.model = DGAN(DGANConfig(
             # max_sequence_len = self.data_df.shape[0] if self.main_config["max_sequence_len"] == 'default' else self.main_config["max_sequence_len"],
             max_sequence_len = self.data_df.shape[0]//2 if self.main_config["max_sequence_len"] == 'default' else self.main_config["max_sequence_len"],
@@ -47,11 +34,28 @@ class DGANER:
             discriminator_learning_rate = self.main_config["discriminator_learning_rate"],
             epochs = self.main_config["epochs"],
             cuda = self.main_config["cuda"]
-            ))
+        ))
+        if not load_mode:
+            # Not Load Mode
+            self.encodable_encoding_mappings = {}
+            self.data_df = pd.read_csv(file_path)
+        else:
+            # Load Mode
+            self.model = self.model.load(file_path)
+            with open(model_encoding_mappings_path, "rb") as pickle_file:
+                self.encodable_encoding_mappings = pickle.load(pickle_file)
 
-        if main_config == "load_mode":
-            model_path = os.path.join(project_directory_path, "model.pt")
-            self.model = self.model.load(model_path)
+        self.df_style = self.main_config["df_style"]
+        self.example_id_column = self.main_config["example_id_column"]
+        self.feature_columns = self.main_config["feature_columns"]
+        self.attribute_columns = self.main_config["attribute_columns"]
+        self.discrete_columns = self.main_config["discrete_columns"]
+        self.encodable_columns = self.main_config["encodable_columns"]
+        self.time_column = self.main_config["time_column"]
+
+        # if main_config == "load_mode":
+        #     model_path = os.path.join(project_directory_path, "model.pt")
+        #     self.model = self.model.load(model_path)
 
     def train(self):
         encoder = OrdinalEncoder()
@@ -106,13 +110,14 @@ class DGANER:
     def show_df(self):
         return self.data_df
 
-    def save(self, directory_path):
-        model_path = os.path.join(directory_path, "model.pt")
-        dgan_config_path = os.path.join(directory_path, "dgan_config.json")
-        model_encoding_mappings_path = os.path.join(directory_path, "encoding_mappings.pkl")
-        self.model.save(model_path)
-        with open(dgan_config_path, 'w') as fp:
-            json.dump(self.main_config, fp)
-        with open(model_encoding_mappings_path, 'wb') as handle:
+    def save(self, save_model_file_path, save_model_encoding_mappings_path):
+        """
+        ### Note
+        Two Files to be Saved!
+        model: .pt
+        encoding_mappings: .pkl
+        """
+        self.model.save(save_model_file_path)
+        with open(save_model_encoding_mappings_path, 'wb') as handle:
             pickle.dump(self.encodable_encoding_mappings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

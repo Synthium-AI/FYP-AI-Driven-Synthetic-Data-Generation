@@ -1,22 +1,39 @@
 from pydantic import BaseModel
 
-class CreateChatbotRequest(BaseModel):
-    chatbot_name: str = "ImmoIQ"
-    system_prompt: str | None = 'default'
+# Create New Project Models
+class CreateNewProjectRequest(BaseModel):
+    name: str = "Untitled Project"
+    description: str | None
+    user_id: int
 
-class CreateChatbotResponse(BaseModel):
-    chatbot_key: str
+class CreateNewProjectResponse(BaseModel):
+    project_id: str
+    project_name: str
 
-class GetChatbotRequest(BaseModel):
-    chatbot_key: str
-    session_id: str | None = None
-    content: str = "Hi, my name is Mobeen and I am visiting this website to know more about it."
+# Empty Project Updation Models
+class UpdateEmptyProjectRequest(BaseModel):
+    project_id: str
+    modelType: str
+    data_artifact_id: str
 
-class GetChatbotResponse(BaseModel):
-    session_id: str
+class UpdateEmptyProjectResponse(BaseModel):
+    project_id: str
+    modelConfig_id: str
 
-class CheckChatbotRequest(BaseModel):
-    chatbot_key: str
+# Pending Project Updation Models
+class UpdatePendingProjectRequest(BaseModel):
+    project_id: str
+    modelConfig_data: str
 
-class CheckChatbotResponse(BaseModel):
-    exists: bool
+class UpdatePendingProjectResponse(BaseModel):
+    project_id: str
+    modelLog_id: str
+
+# Generate Synthetic Data Models
+class GenerateSyntheticDataRequest(BaseModel):
+    project_id: str
+    num_rows: str
+
+class GenerateSyntheticDataResponse(BaseModel):
+    project_id: str
+    synthetic_data_artifact_id: str
