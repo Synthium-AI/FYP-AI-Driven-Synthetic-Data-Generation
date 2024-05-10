@@ -15,8 +15,8 @@ import time
 import os
 from sqlalchemy.orm import Session
 from database import Base, engine, SessionLocal, Users, Projects, Models, ModelConfigs, ModelLogs, DataArtifacts, SyntheticDataArtifacts, SyntheticQualityReports
-from models import CreateNewProjectRequest, CreateNewProjectResponse, UpdateEmptyProjectRequest, UpdateEmptyProjectResponse, UpdatePendingProjectRequest, UpdatePendingProjectResponse, GenerateSyntheticDataRequest, GenerateSyntheticDataResponse
-from api_helpers import get_model_configuration, start_model_training
+# from models import CreateNewProjectRequest, CreateNewProjectResponse, UpdateEmptyProjectRequest, UpdateEmptyProjectResponse, UpdatePendingProjectRequest, UpdatePendingProjectResponse, GenerateSyntheticDataRequest, GenerateSyntheticDataResponse, GetAllProjectsResponse
+from models import *
 from model_helpers import AutoSyntheticConfigurator, synthetic_model_trainer, synthetic_model_data_generator
 from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
@@ -72,6 +72,78 @@ def user(user: user_dependency, db: db_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication Failed")
     return {"User": user}
+
+@app.get("/get_all_projects")
+def get_all_projects(user: user_dependency, db: db_dependency):
+    project_db_records = db.query(Projects).filter(Projects.user_id == user['id']).all()
+    if project_db_records is None:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Projects Not Found!")
+    
+    projects = [{"project_id":project.project_id, "name":project.name, "description":project.description, "model_type": project.model_type, "status":project.status, "created_on":project.created_on, "updated_on":project.updated_on} for project in project_db_records]
+    
+    return GetAllProjectsResponse(
+        projects = projects
+    )
+
+@app.get("/get_project/{project_id}")
+def get_project(user: user_dependency, db: db_dependency, project_id: str):
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
+    if project_db_record is None or project_db_record.user_id != user["id"]:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project Was Not Found!")
+    
+    return GetProjectResponse(
+        project_id = project_db_record.project_id,
+        name = project_db_record.name,
+        description = project_db_record.description,
+        modelType = project_db_record.model_type,
+        status = project_db_record.status,
+        modelTraining_time = project_db_record.model_training_time,
+        synthetic_quality_score = project_db_record.synthetic_quality_score,
+        created_on = project_db_record.created_on,
+        updated_on = project_db_record.updated_on
+    )
+
+@app.post("/upload_data_artifact")
+async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    # Generate a unique ID for this upload
+    data_artifact_id = "data_" + str(uuid.uuid4())
+    google_drive_api = GoogleDriveAPI()
+
+    # Define the file path
+    data_artifact_local_file_name = data_artifact_id + ".csv"
+    data_artifact_local_file_path = os.path.join(CLIENT_BUFFER_FOLDER_NAME, data_artifact_local_file_name)
+ 
+    # Save the uploaded file to the Client Buffer
+    with open(data_artifact_local_file_path, "wb+") as file_object:
+        file_object.write(await file.read())
+
+    # Get number of rows in the data artifact file
+    num_rows = len(pd.read_csv(data_artifact_local_file_path))
+
+    # Upload file to Google Drive Glacier Service
+    gdrive_response = google_drive_api.upload_file("data_artifacts", data_artifact_local_file_path)
+
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Data Artifact. Please try again!")
+    
+    # Delete the file from the Client Buffer (Background Task)
+    background_tasks.add_task(os.remove, data_artifact_local_file_path)
+
+    data_artifact_db_record = DataArtifacts(
+        data_artifact_id = data_artifact_id,
+        original_filename = file.filename,
+        num_rows = num_rows,
+        user_id = user['id']
+    )
+    try:
+        db.add(data_artifact_db_record)
+        db.commit()
+        print("[Database][SUCCESS] Data Artifact Record Successfully Added: ", data_artifact_id)
+    except Exception as e:
+        print("[Database][ERROR] Error Creating Data Artifact Record:",str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating Data Artifact Record!")
+        
+    return JSONResponse(status_code=200, content={"data_artifact_id": data_artifact_id})
 
 @app.post("/create_new_project")
 def create_new_project(user: user_dependency, db: db_dependency, project_data: CreateNewProjectRequest):
@@ -231,48 +303,6 @@ def generate_synthetic_data(user: user_dependency, db: db_dependency, project_da
         project_id =  project_data.project_id,
         synthetic_data_artifact_id = synthetic_data_artifact_id
     )
-
-@app.post("/upload_data_artifact")
-async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    # Generate a unique ID for this upload
-    data_artifact_id = "data_" + str(uuid.uuid4())
-    google_drive_api = GoogleDriveAPI()
-
-    # Define the file path
-    data_artifact_local_file_name = data_artifact_id + ".csv"
-    data_artifact_local_file_path = os.path.join(CLIENT_BUFFER_FOLDER_NAME, data_artifact_local_file_name)
- 
-    # Save the uploaded file to the Client Buffer
-    with open(data_artifact_local_file_path, "wb+") as file_object:
-        file_object.write(await file.read())
-
-    # Get number of rows in the data artifact file
-    num_rows = len(pd.read_csv(data_artifact_local_file_path))
-
-    # Upload file to Google Drive Glacier Service
-    gdrive_response = google_drive_api.upload_file("data_artifacts", data_artifact_local_file_path)
-
-    if not gdrive_response:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Uploading Data Artifact. Please try again!")
-    
-    # Delete the file from the Client Buffer (Background Task)
-    background_tasks.add_task(os.remove, data_artifact_local_file_path)
-
-    data_artifact_db_record = DataArtifacts(
-        data_artifact_id = data_artifact_id,
-        original_filename = file.filename,
-        num_rows = num_rows,
-        user_id = user['id']
-    )
-    try:
-        db.add(data_artifact_db_record)
-        db.commit()
-        print("[Database][SUCCESS] Data Artifact Record Successfully Added: ", data_artifact_id)
-    except Exception as e:
-        print("[Database][ERROR] Error Creating Data Artifact Record:",str(e))
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Error Creating Data Artifact Record!")
-        
-    return JSONResponse(status_code=200, content={"data_artifact_id": data_artifact_id})
 
 @app.get("/config/{key}")
 def get_config(user: user_dependency, key: str, model="ctgan"):

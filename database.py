@@ -27,6 +27,8 @@ class Users(Base):
     hashed_password = Column(String(length=256))
     first_name = Column(String(length=256))
     last_name = Column(String(length=256))
+    created_on = Column(DateTime(timezone=True), server_default=func.current_timestamp())
+    updated_on = Column(DateTime(timezone=True), server_default=func.current_timestamp(), onupdate=func.current_timestamp())
 
 class Projects(Base):
     __tablename__ = 'projects'

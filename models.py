@@ -1,3 +1,4 @@
+import datetime
 from pydantic import BaseModel
 
 # Create New Project Models
@@ -37,3 +38,17 @@ class GenerateSyntheticDataRequest(BaseModel):
 class GenerateSyntheticDataResponse(BaseModel):
     project_id: str
     synthetic_data_artifact_id: str
+
+class GetAllProjectsResponse(BaseModel):
+    projects: list
+
+class GetProjectResponse(BaseModel):
+    project_id: str
+    name: str
+    description: str
+    modelType: str
+    status: str
+    modelTraining_time: float
+    synthetic_quality_score: float
+    created_on: datetime.datetime
+    updated_on: datetime.datetime
