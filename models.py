@@ -5,7 +5,6 @@ from pydantic import BaseModel
 class CreateNewProjectRequest(BaseModel):
     name: str = "Untitled Project"
     description: str | None
-    user_id: int
 
 class CreateNewProjectResponse(BaseModel):
     project_id: str
