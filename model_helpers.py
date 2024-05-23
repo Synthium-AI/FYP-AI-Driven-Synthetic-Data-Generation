@@ -115,6 +115,8 @@ class AutoSyntheticConfigurator:
             dgan_main_config["encodable_columns"] = encodable_candidates
             dgan_main_config["feature_columns"] += dgan_main_config["encodable_columns"]
 
+        # dgan_main_config["feature_columns"] = [x.replace("'", "") for x in dgan_main_config["feature_columns"]]
+
         return dgan_main_config
 
     def detect_datetime_column(self):
@@ -122,10 +124,13 @@ class AutoSyntheticConfigurator:
         df = self.data_df
         # Dictionary to hold the success rate of date parsing for each column
         datetime_success_rate = {}
+        overflow_errors_list = []
+
         # Iterate over each column in the DataFrame
         for column in df.columns:
             total_count = 0
             success_count = 0
+
             # Attempt to parse each value in the column
             for value in df[column].dropna().unique():
                 try:
@@ -135,38 +140,44 @@ class AutoSyntheticConfigurator:
                 except (ValueError, TypeError):
                     # If parsing fails, continue to the next value
                     continue
+                except OverflowError:
+                    # Handle OverflowError specifically and log the value
+                    if column not in overflow_errors_list:
+                        overflow_errors_list.append(column)
+                    continue
                 finally:
                     total_count += 1
+
             # Calculate the success rate of parsing for the current column
             if total_count > 0:
                 success_rate = success_count / total_count
                 datetime_success_rate[column] = success_rate
+
+        if len(overflow_errors_list) > 0:
+            print("[NOTICE] Overflow Error Occured in these Columns: {}".format(", ".join(overflow_errors_list)))
+        
         # Find the column with the highest success rate of date parsing
         datetime_column = max(datetime_success_rate, key=datetime_success_rate.get, default=None)
+
         # Return the name of the column that most likely represents a datetime
         return datetime_column, datetime_success_rate[datetime_column] if datetime_column else None
 
     def detect_numeric_columns(self):
-        # Load the CSV file
         df = self.data_df
-
-        # List to hold the names of numeric and non-alphabetic columns
         numeric_columns = []
 
-        # Iterate over each column in the DataFrame
         for column in df.columns:
-            # Use to_numeric to attempt converting the column, errors='coerce' replaces non-convertible values with NaN
+            # Attempt to convert the column to numeric, non-convertible values become NaN
             numeric_series = pd.to_numeric(df[column], errors='coerce')
 
-            # After conversion, if there are no NaN values, it means all values were numeric
-            if not numeric_series.isnull().any():
-                # Additional check: Ensure there are no alphabetic characters
-                # This is a revised approach where we directly analyze the content without replacing
-                if not df[column].astype(str).str.contains('[a-zA-Z]').any():
+            # Check if all non-NaN values are numeric
+            if pd.to_numeric(df[column].dropna(), errors='coerce').notna().all():
+                # Ensure there are no alphabetic characters in the original column (excluding NaNs)
+                if not df[column].dropna().astype(str).str.contains('[a-zA-Z]').any():
                     numeric_columns.append(column)
 
-        # Return the list of column names that are numeric and non-alphabetic
-        return numeric_columns if numeric_columns != [] else None
+        # Return the list of numeric and non-alphabetic columns or None if empty
+        return numeric_columns if numeric_columns else None
 
     def detect_string_columns(self):
         # Load the CSV file
@@ -194,5 +205,6 @@ class AutoSyntheticConfigurator:
             # If the column is determined to be string-like, add it to the list
             if is_string_like:
                 string_columns.append(column)
+
         # Return the list of column names that are string-like
         return string_columns if string_columns != [] else None

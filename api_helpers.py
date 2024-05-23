@@ -11,6 +11,8 @@ import time
 import sys
 import ast
 import os
+import traceback
+
 
 
 
@@ -28,7 +30,7 @@ def get_model_configuration(data_artifact_file_path, model_type):
         print("[ModelConfigGenerator][SUCCESS] Successfully Generated Model Config for: {}_model {}".format(model_type,data_artifact_file_path))
         return model_config
     except Exception as e:
-        print("[ModelConfigGenerator][ERROR] Error generating model config:",str(e))
+        print("[ModelConfigGenerator][ERROR] Error generating model config:",str(e).split('\n'))
         return None
 
 @contextmanager
@@ -120,14 +122,14 @@ def start_model_training(model_log_id, user_id, project_data):
             if project_db_record.model_type == "ctgan":
                 synthetic_model_trainer(
                     data_artifact_file_path,
-                    ast.literal_eval(model_config_db_record.model_config_data),
+                    ast.literal_eval(str(model_config_db_record.model_config_data)),
                     project_db_record.model_type,
                     model_file_path
                 )
             elif project_db_record.model_type == "dgan":
                 synthetic_model_trainer(
                     data_artifact_file_path,
-                    ast.literal_eval(model_config_db_record.model_config_data),
+                    ast.literal_eval(str(model_config_db_record.model_config_data)),
                     project_db_record.model_type,
                     model_file_path,
                     model_encoding_mappings_path
@@ -225,6 +227,7 @@ def start_model_training(model_log_id, user_id, project_data):
 
     except Exception as e:
         print("[BackgroundTaskModelTrainer][ERROR] Failed To Train Model:", str(e))
+        traceback.print_exc()
         project_db_record = db.query(Projects).filter(Projects.project_id == project_data.project_id).first()
         project_db_record.status = "training_failed"
         db.commit()

@@ -11,6 +11,22 @@ import pickle
 import json
 import os
 
+def handle_missing_values(df):
+    # Check which columns have missing values
+    columns_with_missing = df.columns[df.isnull().any()]
+    
+    for col in columns_with_missing:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # Numeric column: interpolate missing values
+            df[col] = df[col].interpolate()
+        elif pd.api.types.is_string_dtype(df[col]):
+            # String column: replace missing values with 'NA'
+            df[col].fillna('NA', inplace=True)
+        else:
+            # Handle other types if needed
+            pass
+    
+    return df
 
 class DGANER:
     """
@@ -38,7 +54,7 @@ class DGANER:
         if not load_mode:
             # Not Load Mode
             self.encodable_encoding_mappings = {}
-            self.data_df = pd.read_csv(file_path)
+            self.data_df = handle_missing_values(pd.read_csv(file_path))
         else:
             # Load Mode
             self.model = self.model.load(file_path)

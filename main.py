@@ -18,6 +18,7 @@ from database import Base, engine, SessionLocal, Users, Projects, Models, ModelC
 # from models import CreateNewProjectRequest, CreateNewProjectResponse, UpdateEmptyProjectRequest, UpdateEmptyProjectResponse, UpdatePendingProjectRequest, UpdatePendingProjectResponse, GenerateSyntheticDataRequest, GenerateSyntheticDataResponse, GetAllProjectsResponse
 from models import *
 from model_helpers import AutoSyntheticConfigurator, synthetic_model_trainer, synthetic_model_data_generator
+from api_helpers import get_model_configuration, start_model_training
 from synthetic_quality_report import SyntheticQualityAssurance
 from ctgan_model import CTGANER
 from dgan_model import DGANER
@@ -117,8 +118,17 @@ async def upload_data_artifact(user: user_dependency, db: db_dependency, backgro
     with open(data_artifact_local_file_path, "wb+") as file_object:
         file_object.write(await file.read())
 
+    # Step 1: Read the CSV file into a DataFrame
+    data_artifact_df = pd.read_csv(data_artifact_local_file_path)
+
+    # Step 2: Iterate through the column names and remove single quotes
+    data_artifact_df.columns = [col.replace("'", "") for col in data_artifact_df.columns]
+
+    # Step 3: Save the modified DataFrame back to a CSV file
+    data_artifact_df.to_csv(data_artifact_local_file_path, index=False)
+
     # Get number of rows in the data artifact file
-    num_rows = len(pd.read_csv(data_artifact_local_file_path))
+    num_rows = len(data_artifact_df)
 
     # Upload file to Google Drive Glacier Service
     gdrive_response = google_drive_api.upload_file("data_artifacts", data_artifact_local_file_path)
@@ -178,9 +188,12 @@ def update_empty_project(user: user_dependency, db: db_dependency, project_data:
     
     data_artifact_file_path = gdrive_response
     model_config = get_model_configuration(data_artifact_file_path, project_data.modelType)
-    
+
     if model_config == None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error While Generating Model Configuration For Data Artifact: "+project_data.data_artifact_id+" Project ID: "+project_data.project_id)
+
+    # json_dumped_model_config_str = json.dumps(model_config)
+    # formatted_json_dumped_model_config_str = json_dumped_model_config_str.replace('"', '\"')
 
     model_config_db_record = ModelConfigs(
             model_config_id = model_config_id,
