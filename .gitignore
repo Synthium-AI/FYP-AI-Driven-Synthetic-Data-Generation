@@ -152,3 +152,4 @@ cython_debug/
 #.idea/
 service_account_secret.json
 /client_buffer
+/client
