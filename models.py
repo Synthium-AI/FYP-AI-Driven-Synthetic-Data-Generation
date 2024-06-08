@@ -38,6 +38,9 @@ class GenerateSyntheticDataResponse(BaseModel):
     project_id: str
     synthetic_data_artifact_id: str
 
+class GetAllDataArtifactsResponse(BaseModel):
+    data_artifacts: list
+
 class GetAllProjectsResponse(BaseModel):
     projects: list
 

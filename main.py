@@ -74,6 +74,18 @@ def user(user: user_dependency, db: db_dependency):
         raise HTTPException(status_code=401, detail="Authentication Failed")
     return {"User": user}
 
+@app.get("/get_all_data_artifacts")
+def get_all_data_artifacts(user: user_dependency, db: db_dependency):
+    data_artifacts_db_records = db.query(DataArtifacts).filter(DataArtifacts.user_id == user['id']).all()
+    if data_artifacts_db_records is None:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Data Artifact Not Found!")
+    
+    data_artifacts = [{"data_artifact_id":data_artifact.data_artifact_id, "name":data_artifact.original_filename, "created_on":data_artifact.created_on} for data_artifact in data_artifacts_db_records]
+    
+    return GetAllDataArtifactsResponse(
+        data_artifacts = data_artifacts
+    )
+
 @app.get("/get_all_projects")
 def get_all_projects(user: user_dependency, db: db_dependency):
     project_db_records = db.query(Projects).filter(Projects.user_id == user['id']).all()
