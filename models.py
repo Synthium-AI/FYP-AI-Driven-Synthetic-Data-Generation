@@ -54,3 +54,8 @@ class GetProjectResponse(BaseModel):
     synthetic_quality_score: float | None
     created_on: datetime.datetime
     updated_on: datetime.datetime
+
+class GetModelConfigResponse(BaseModel):
+    model_config_id: str
+    model_config_data: str
+    created_on: datetime.datetime
