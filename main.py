@@ -120,10 +120,12 @@ def get_project(user: user_dependency, db: db_dependency, project_id: str):
 def get_model_config(user: user_dependency, db: db_dependency, project_id: str):
     project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
     if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.model_config_id is not None:
+        print("Project")
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Config Was Not Found!")
     
     model_config_db_record = db.query(ModelConfigs).filter(ModelConfigs.id == project_db_record.model_config_id).first()
     if model_config_db_record is None or model_config_db_record.user_id != user["id"]:
+        print("Model Config")
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Config Was Not Found!")
     
     return GetModelConfigResponse(
