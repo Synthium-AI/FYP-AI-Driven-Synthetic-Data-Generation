@@ -56,6 +56,6 @@ class GetProjectResponse(BaseModel):
     updated_on: datetime.datetime
 
 class GetModelConfigResponse(BaseModel):
-    model_config_id: str
-    model_config_data: str
+    ModelConfig_id: str
+    ModelConfig_data: str
     created_on: datetime.datetime
