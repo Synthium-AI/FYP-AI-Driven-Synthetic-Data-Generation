@@ -44,10 +44,10 @@ class GetAllProjectsResponse(BaseModel):
 class GetProjectResponse(BaseModel):
     project_id: str
     name: str
-    description: str
-    modelType: str
+    description: str | None
+    modelType: str | None
     status: str
-    modelTraining_time: float
-    synthetic_quality_score: float
+    modelTraining_time: float | None
+    synthetic_quality_score: float | None
     created_on: datetime.datetime
     updated_on: datetime.datetime
