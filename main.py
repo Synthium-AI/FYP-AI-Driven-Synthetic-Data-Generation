@@ -127,8 +127,8 @@ def get_model_config(user: user_dependency, db: db_dependency, project_id: str):
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Config Was Not Found!")
     
     return GetModelConfigResponse(
-        model_config_id = model_config_db_record.model_config_id,
-        model_config_data = model_config_db_record.model_config_data,
+        ModelConfig_id = model_config_db_record.model_config_id,
+        ModelConfig_data = model_config_db_record.model_config_data,
         created_on = model_config_db_record.created_on
     )
 
