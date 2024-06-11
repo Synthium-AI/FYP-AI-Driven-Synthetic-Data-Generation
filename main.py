@@ -227,7 +227,7 @@ def update_empty_project(user: user_dependency, db: db_dependency, project_data:
 
     model_config_db_record = ModelConfigs(
             model_config_id = model_config_id,
-            model_config_data = str(json.loads(model_config)),
+            model_config_data = json.dumps(model_config),
             project_id = db.query(Projects).filter(Projects.project_id == project_data.project_id).first().id,
             user_id = user["id"]
         )
