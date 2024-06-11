@@ -153,3 +153,5 @@ cython_debug/
 service_account_secret.json
 /client_buffer
 /client
+*.sqlite
+database.sqlite
