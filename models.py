@@ -41,6 +41,16 @@ class GenerateSyntheticDataResponse(BaseModel):
 class GetAllDataArtifactsResponse(BaseModel):
     data_artifacts: list
 
+class SyntheticDataArtifactMetadata(BaseModel):
+    project_id: str
+    synthetic_data_artifact_id: str
+    file_extension: str
+    num_rows: int
+    created_on: datetime.datetime
+
+class GetProjectDataArtifactsMetadataResponse(BaseModel):
+    synthetic_data_artifacts: list[SyntheticDataArtifactMetadata]
+
 class GetAllProjectsResponse(BaseModel):
     projects: list
 
