@@ -118,12 +118,12 @@ def get_data_artifact_metadata(user: user_dependency, db: db_dependency, project
 @app.get("/get_project_synthetic_data_artifacts_metadata/{project_id}")
 def get_project_synthetic_data_artifacts_metadata(user: user_dependency, db: db_dependency, project_id: str):
     project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
-    if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.status != "completed" or project_db_record.status != "training":
+    if project_db_record is None or project_db_record.user_id != user["id"] or (project_db_record.status != "completed" and project_db_record.status != "training"):
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Synthetic Data Artifact from Project Was Not Found!")
     
     synthetic_data_artifact_db_record = db.query(SyntheticDataArtifacts).filter(SyntheticDataArtifacts.project_id == project_db_record.id).all()
 
-    synthetic_data_artifacts_metadata_list: list[SyntheticDataArtifactMetadata]
+    synthetic_data_artifacts_metadata_list: list[SyntheticDataArtifactMetadata] = []
 
     for synthetic_data_artifact in synthetic_data_artifact_db_record:
         synthetic_data_artifacts_metadata_list.append(
@@ -136,7 +136,7 @@ def get_project_synthetic_data_artifacts_metadata(user: user_dependency, db: db_
             )
         )
 
-    return GetDataArtifactMetadataResponse(
+    return GetProjectDataArtifactsMetadataResponse(
         synthetic_data_artifacts = synthetic_data_artifacts_metadata_list
     )
 
