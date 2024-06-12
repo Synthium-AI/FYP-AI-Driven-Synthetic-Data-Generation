@@ -1,0 +1,6 @@
+import ast
+import json
+
+ev = '{"metadata":{"columns":{"customerID":{"sdtype":"unknown","pii":true},"gender":{"sdtype":"categorical"},"SeniorCitizen":{"sdtype":"categorical"},"Partner":{"sdtype":"categorical"},"Dependents":{"sdtype":"categorical"},"tenure":{"sdtype":"numerical"},"PhoneService":{"sdtype":"categorical"},"MultipleLines":{"sdtype":"categorical"},"InternetService":{"sdtype":"categorical"},"OnlineSecurity":{"sdtype":"categorical"},"OnlineBackup":{"sdtype":"categorical"},"DeviceProtection":{"sdtype":"categorical"},"TechSupport":{"sdtype":"categorical"},"StreamingTV":{"sdtype":"categorical"},"StreamingMovies":{"sdtype":"categorical"},"Contract":{"sdtype":"categorical"},"PaperlessBilling":{"sdtype":"categorical"},"PaymentMethod":{"sdtype":"categorical"},"MonthlyCharges":{"sdtype":"numerical"},"TotalCharges":{"sdtype":"numerical"},"Churn":{"sdtype":"categorical"}},"METADATA_SPEC_VERSION":"SINGLE_TABLE_V1"},"metadata_is_valid":true,"enforce_min_max_values":true,"enforce_rounding":true,"locales":null,"embedding_dim":128,"generator_dim":[256,256],"discriminator_dim":[256,256],"generator_lr":0.0002,"generator_decay":0.000001,"discriminator_lr":0.0002,"discriminator_decay":0.000001,"batch_size":500,"discriminator_steps":1,"log_frequency":true,"verbose":true,"epochs":300,"pac":10,"cuda":true}'
+
+print(json.loads(ev))

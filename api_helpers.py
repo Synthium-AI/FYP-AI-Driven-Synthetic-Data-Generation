@@ -6,6 +6,7 @@ from google_drive_api import GoogleDriveAPI
 from contextlib import contextmanager
 from dotenv import load_dotenv, find_dotenv
 import pandas as pd
+import json
 import uuid
 import time
 import sys
@@ -122,14 +123,14 @@ def start_model_training(model_log_id, user_id, project_data):
             if project_db_record.model_type == "ctgan":
                 synthetic_model_trainer(
                     data_artifact_file_path,
-                    ast.literal_eval(str(model_config_db_record.model_config_data)),
+                    json.loads(str(model_config_db_record.model_config_data)),
                     project_db_record.model_type,
                     model_file_path
                 )
             elif project_db_record.model_type == "dgan":
                 synthetic_model_trainer(
                     data_artifact_file_path,
-                    ast.literal_eval(str(model_config_db_record.model_config_data)),
+                    json.loads(str(model_config_db_record.model_config_data)),
                     project_db_record.model_type,
                     model_file_path,
                     model_encoding_mappings_path
@@ -155,7 +156,7 @@ def start_model_training(model_log_id, user_id, project_data):
             data_artifact_db_record.num_rows,
             synthetic_data_artifact_local_file_path,
             model_file_path,
-            ast.literal_eval(model_config_db_record.model_config_data),
+            json.loads(model_config_db_record.model_config_data),
             project_db_record.model_type,
             model_encoding_mappings_path if project_db_record.model_type == "dgan" else None
         )

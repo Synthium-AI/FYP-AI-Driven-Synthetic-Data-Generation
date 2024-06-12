@@ -306,7 +306,7 @@ def generate_synthetic_data(user: user_dependency, db: db_dependency, project_da
         project_data.num_rows,
         synthetic_data_artifact_local_file_path,
         model_file_path,
-        ast.literal_eval(model_config_db_record.model_config_data),
+        json.loads(model_config_db_record.model_config_data),
         project_db_record.model_type,
         model_encoding_mappings_file_path if project_db_record.model_type == "dgan" else None
     )
