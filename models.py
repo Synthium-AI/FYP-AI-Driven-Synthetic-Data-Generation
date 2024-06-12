@@ -77,3 +77,10 @@ class GetModelConfigResponse(BaseModel):
     ModelConfig_id: str
     ModelConfig_data: str
     created_on: datetime.datetime
+
+class GetModelLogsResponse(BaseModel):
+    project_id: str
+    ModelLog_id: str
+    ModelLog_data: str
+    created_on: datetime.datetime
+    updated_on: datetime.datetime

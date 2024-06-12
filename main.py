@@ -176,6 +176,23 @@ def get_model_config(user: user_dependency, db: db_dependency, project_id: str):
         created_on = model_config_db_record.created_on
     )
 
+@app.get("/get_model_logs/{project_id}")
+def get_model_logs(user: user_dependency, db: db_dependency, project_id: str):
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
+    if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.model_log_id is None:
+        print("Project")
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Logs Were Not Found!")
+    
+    model_logs_db_record = db.query(ModelLogs).filter(ModelLogs.id == project_db_record.model_log_id).first()
+    
+    return GetModelLogsResponse(
+        project_id = project_db_record.project_id,
+        ModelLog_id = model_logs_db_record.model_log_id,
+        ModelLog_data = model_logs_db_record.model_log_data,
+        created_on = model_logs_db_record.created_on,
+        updated_on = model_logs_db_record.updated_on
+    )
+
 @app.post("/upload_data_artifact")
 async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     # Generate a unique ID for this upload
