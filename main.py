@@ -106,7 +106,6 @@ def get_data_artifact_metadata(user: user_dependency, db: db_dependency, project
     
     data_artifact_db_record = db.query(DataArtifacts).filter(DataArtifacts.id == project_db_record.data_artifact_id).first()
 
-
     return GetDataArtifactMetadataResponse(
         project_id = project_db_record.project_id,
         data_artifact_id = data_artifact_db_record.data_artifact_id,
