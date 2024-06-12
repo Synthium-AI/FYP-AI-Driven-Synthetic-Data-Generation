@@ -55,6 +55,14 @@ class GetProjectResponse(BaseModel):
     created_on: datetime.datetime
     updated_on: datetime.datetime
 
+class GetDataArtifactMetadataResponse(BaseModel):
+    project_id: str
+    data_artifact_id: str
+    original_filename: str
+    file_extension: str
+    num_rows: int
+    created_on: datetime.datetime
+
 class GetModelConfigResponse(BaseModel):
     ModelConfig_id: str
     ModelConfig_data: str

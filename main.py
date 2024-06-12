@@ -98,6 +98,21 @@ def get_all_projects(user: user_dependency, db: db_dependency):
         projects = projects
     )
 
+@app.get("/get_data_artifact_metadata/{project_id}")
+def get_data_artifact_metadata(user: user_dependency, db: db_dependency, project_id: str):
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
+    if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.data_artifact_id is None:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Data Artifact from Project Was Not Found!")
+    
+    return GetDataArtifactMetadataResponse(
+        project_id = project_db_record.project_id,
+        data_artifact_id = project_db_record.data_artifact_id,
+        original_filename = project_db_record.original_filename,
+        file_extension = project_db_record.file_extension,
+        num_rows = project_db_record.num_rows,
+        created_on = project_db_record.created_on
+    )
+
 @app.get("/get_project/{project_id}")
 def get_project(user: user_dependency, db: db_dependency, project_id: str):
     project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
