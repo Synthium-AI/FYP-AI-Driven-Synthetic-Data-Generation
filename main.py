@@ -162,12 +162,10 @@ def get_project(user: user_dependency, db: db_dependency, project_id: str):
 def get_model_config(user: user_dependency, db: db_dependency, project_id: str):
     project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
     if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.model_config_id is None:
-        print("Project")
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Config Was Not Found!")
     
     model_config_db_record = db.query(ModelConfigs).filter(ModelConfigs.id == project_db_record.model_config_id).first()
     if model_config_db_record is None or model_config_db_record.user_id != user["id"]:
-        print("Model Config")
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Config Was Not Found!")
     
     return GetModelConfigResponse(
@@ -180,7 +178,6 @@ def get_model_config(user: user_dependency, db: db_dependency, project_id: str):
 def get_model_logs(user: user_dependency, db: db_dependency, project_id: str):
     project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
     if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.model_log_id is None:
-        print("Project")
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Model Logs Were Not Found!")
     
     model_logs_db_record = db.query(ModelLogs).filter(ModelLogs.id == project_db_record.model_log_id).first()
@@ -191,6 +188,30 @@ def get_model_logs(user: user_dependency, db: db_dependency, project_id: str):
         ModelLog_data = model_logs_db_record.model_log_data,
         created_on = model_logs_db_record.created_on,
         updated_on = model_logs_db_record.updated_on
+    )
+
+@app.get("/get_synthetic_quality_report/{project_id}")
+def get_synthetic_quality_report(user: user_dependency, db: db_dependency, project_id: str):
+    project_db_record = db.query(Projects).filter(Projects.project_id == project_id).first()
+    if project_db_record is None or project_db_record.user_id != user["id"] or project_db_record.synthetic_quality_report_id is None:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Specified Project or it's Synthetic Quality Report Was Not Found!")
+    
+    synthetic_quality_report_db_record = db.query(SyntheticQualityReports).filter(SyntheticQualityReports.id == project_db_record.synthetic_quality_report_id).first()
+    synthetic_quality_report_data = ast.literal_eval(synthetic_quality_report_db_record.synthetic_quality_report_data)
+    
+    return GetSyntheticQualityReportResponse(
+        project_id = project_db_record.project_id,
+        synthetic_quality_report_id = synthetic_quality_report_db_record.synthetic_quality_report_id,
+        synthetic_quality_report_data = synthetic_quality_report_db_record.synthetic_quality_report_data,
+        report_type = synthetic_quality_report_data["report_type"],
+        sdmetrics_version = synthetic_quality_report_data["sdmetrics_version"],
+        num_rows_real_data = synthetic_quality_report_data["num_rows_real_data"],
+        num_rows_synthetic_data = synthetic_quality_report_data["num_rows_synthetic_data"],
+        generation_time = synthetic_quality_report_data["generation_time"],
+        overall_score = synthetic_quality_report_data["overall_score"],
+        column_shapes = synthetic_quality_report_data["properties_info"]["Score"][0],
+        column_pair_trends = synthetic_quality_report_data["properties_info"]["Score"][1],
+        created_on = synthetic_quality_report_db_record.created_on
     )
 
 @app.post("/upload_data_artifact")
@@ -521,20 +542,20 @@ def generate_synthetic_data_old(user: user_dependency, key: str, model: str="ctg
     # Assuming you want to return the file for download
     return FileResponse(path=os.path.join(exports_path, new_filename), filename=new_filename)
 
-@app.get("/get_synthetic_quality_report/{key}")
-def get_synthetic_quality_report(user: user_dependency, key: str):
-    project_path = os.path.join("client", key)
-    report_path = os.path.join(project_path, "synthetic_data_quality_report.json")
-    # Check if report exists
-    if not os.path.exists(project_path):
-        return JSONResponse(status_code=404, content={"message": "Invalid Key!"})
-    if not os.path.exists(report_path):
-        return JSONResponse(status_code=404, content={"message": "Quality Report does not exists!"})
+# @app.get("/get_synthetic_quality_report/{key}")
+# def get_synthetic_quality_report(user: user_dependency, key: str):
+#     project_path = os.path.join("client", key)
+#     report_path = os.path.join(project_path, "synthetic_data_quality_report.json")
+#     # Check if report exists
+#     if not os.path.exists(project_path):
+#         return JSONResponse(status_code=404, content={"message": "Invalid Key!"})
+#     if not os.path.exists(report_path):
+#         return JSONResponse(status_code=404, content={"message": "Quality Report does not exists!"})
     
-    with open(report_path, "r") as json_file:
-        quality_report = json.load(json_file)
+#     with open(report_path, "r") as json_file:
+#         quality_report = json.load(json_file)
 
-    return JSONResponse(status_code=200, content=quality_report)
+#     return JSONResponse(status_code=200, content=quality_report)
 
 if __name__ == "__main__":
     uvicorn.run(app)

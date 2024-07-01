@@ -84,3 +84,17 @@ class GetModelLogsResponse(BaseModel):
     ModelLog_data: str
     created_on: datetime.datetime
     updated_on: datetime.datetime
+
+class GetSyntheticQualityReportResponse(BaseModel):
+    project_id: str
+    synthetic_quality_report_id: str
+    synthetic_quality_report_data: str
+    report_type: str
+    sdmetrics_version: str
+    num_rows_real_data: str
+    num_rows_synthetic_data: str
+    generation_time: str
+    overall_score: str
+    column_shapes: str
+    column_pair_trends: str
+    created_on: datetime.datetime
