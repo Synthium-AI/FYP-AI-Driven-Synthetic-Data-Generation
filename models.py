@@ -91,10 +91,10 @@ class GetSyntheticQualityReportResponse(BaseModel):
     synthetic_quality_report_data: str
     report_type: str
     sdmetrics_version: str
-    num_rows_real_data: str
-    num_rows_synthetic_data: str
-    generation_time: str
-    overall_score: str
-    column_shapes: str
-    column_pair_trends: str
+    num_rows_real_data: int
+    num_rows_synthetic_data: int
+    generation_time: float
+    overall_score: float
+    column_shapes: float
+    column_pair_trends: float
     created_on: datetime.datetime
