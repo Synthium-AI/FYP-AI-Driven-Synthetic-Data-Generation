@@ -238,7 +238,12 @@ def download_synthetic_data(user: user_dependency, db: db_dependency, synthetic_
 
     print("[SyntheticDataDownloader][SUCCESS] Synthetic Data Downloaded For Client Successfully!: " + synthetic_data_artifact_id)
 
-    return FileResponse(synthetic_data_artifact_file_path)
+    return FileResponse(
+            synthetic_data_artifact_file_path, 
+            media_type='text/csv',
+            filename=synthetic_data_artifact_file_name,
+            headers={"Content-Disposition": f"attachment; filename={synthetic_data_artifact_file_name}"}
+        )
 
 @app.post("/upload_data_artifact")
 async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
