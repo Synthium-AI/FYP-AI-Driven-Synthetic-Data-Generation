@@ -214,7 +214,7 @@ def get_synthetic_quality_report(user: user_dependency, db: db_dependency, proje
         created_on = synthetic_quality_report_db_record.created_on
     )
 
-@app.get("/download_synthetic_data")
+@app.get("/download_synthetic_data/{synthetic_data_artifact_id}")
 def download_synthetic_data(user: user_dependency, db: db_dependency, synthetic_data_artifact_id: str, background_tasks: BackgroundTasks):
     synthetic_data_artifact_db_record = db.query(SyntheticDataArtifacts).filter(SyntheticDataArtifacts.synthetic_data_artifact_id == synthetic_data_artifact_id).first()
     if synthetic_data_artifact_db_record is None:
