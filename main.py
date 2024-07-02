@@ -214,6 +214,32 @@ def get_synthetic_quality_report(user: user_dependency, db: db_dependency, proje
         created_on = synthetic_quality_report_db_record.created_on
     )
 
+@app.get("/download_synthetic_data")
+def download_synthetic_data(user: user_dependency, db: db_dependency, synthetic_data_artifact_id: str, background_tasks: BackgroundTasks):
+    synthetic_data_artifact_db_record = db.query(SyntheticDataArtifacts).filter(SyntheticDataArtifacts.synthetic_data_artifact_id == synthetic_data_artifact_id).first()
+    if synthetic_data_artifact_db_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Synthetic Data Artifact Not Found!")
+    if synthetic_data_artifact_db_record.user_id != user["id"]:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Synthetic Data Artifact Not AUthorized For Client!")
+    
+    synthetic_data_artifact_file_name = synthetic_data_artifact_db_record.synthetic_data_artifact_id + synthetic_data_artifact_db_record.file_extension
+
+    # Download Model and Encoding file from Google Drive
+    google_drive_api = GoogleDriveAPI()
+    gdrive_response = google_drive_api.download_file("synthetic_data_artifacts", synthetic_data_artifact_file_name)
+    
+    if not gdrive_response:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error Downloading Synthetic Data Artifact File!")
+    
+    synthetic_data_artifact_file_path = gdrive_response
+    
+    # Delete the file from the Client Buffer (Background Task)
+    background_tasks.add_task(os.remove, synthetic_data_artifact_file_path)
+
+    print("[SyntheticDataDownloader][SUCCESS] Synthetic Data Downloaded For Client Successfully!: " + synthetic_data_artifact_id)
+
+    return FileResponse(synthetic_data_artifact_file_path)
+
 @app.post("/upload_data_artifact")
 async def upload_data_artifact(user: user_dependency, db: db_dependency, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     # Generate a unique ID for this upload
