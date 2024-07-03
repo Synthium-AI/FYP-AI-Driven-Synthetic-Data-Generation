@@ -32,7 +32,7 @@ class UpdatePendingProjectResponse(BaseModel):
 # Generate Synthetic Data Models
 class GenerateSyntheticDataRequest(BaseModel):
     project_id: str
-    num_rows: str
+    num_rows: int
 
 class GenerateSyntheticDataResponse(BaseModel):
     project_id: str
